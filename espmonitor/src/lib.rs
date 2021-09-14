@@ -15,6 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with ESPMonitor.  If not, see <https://www.gnu.org/licenses/>.
 
+use console::Style;
 use lazy_static::lazy_static;
 use mio::{Interest, Poll, Token, event::Events};
 use mio_serial::{SerialPort, SerialPortBuilderExt, SerialStream};
@@ -38,7 +39,7 @@ const RESET_KEYCODE: u8 = 18;
 lazy_static! {
     static ref FUNC_ADDR_RE: Regex = Regex::new(r"0x4[0-9a-f]{7}")
         .expect("Failed to parse program address regex");
-    static ref ADDR2LINE_RE: Regex = Regex::new(r"^0x[0-9a-f]+:\s+([^ ]+)\s+at\s+(\?\?|[0-9]+):(\?|[0-9]+)")
+    static ref ADDR2LINE_RE: Regex = Regex::new(r"0x[0-9a-f]+:.*")
         .expect("Failed to parse addr2line output regex");
 }
 
@@ -360,9 +361,10 @@ fn process_line(reader: &SerialReader, line: &str) -> String {
                 .ok()
                 .and_then(|output| String::from_utf8(output.stdout).ok())
             {
-                if let Some(caps) = ADDR2LINE_RE.captures(&output) {
-                    let name = format!("{} [{}:{}:{}]", mat.as_str().to_string(), caps[1].to_string(), caps[2].to_string(), caps[3].to_string());
-                    updated_line = updated_line.replace(mat.as_str(), &name);
+                if let Some(a2l_mat) = ADDR2LINE_RE.find(&output) {
+                    let a2l_format = Style::new().magenta().bright().bold();
+                    updated_line.push_str("\r\n");
+                    updated_line.push_str(&a2l_format.apply_to(a2l_mat.as_str()).to_string());
                 }
             }
         }
